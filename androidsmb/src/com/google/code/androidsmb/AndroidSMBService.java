@@ -22,6 +22,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -53,36 +54,40 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
     @Override
     public void onCreate() {
-        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-
-        // Display a notification about us starting.  We put an icon in the status bar.
-        showNotification();
-        status = RUNNING;
+    	Toast.makeText(this, "Android SMB Service Created", Toast.LENGTH_LONG).show();
+    	// Display a notification about us starting.  We put an icon in the status bar.
     }
 
     public int getStatus(){
     	return status;
     }
     
-    public void swapStatus(){
-    	status = status % 1;
+    private int setStatus(int status){
+    	int temp = this.getStatus();
+    	this.status = status;
+    	return temp;
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "Received start id " + startId + ": " + intent);
-
         Toast.makeText(this, R.string.smb_started, Toast.LENGTH_LONG).show();
         // We want this service to continue running until it is explicitly
         // stopped, so return sticky.
+    	mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+    	showNotification();
+    	this.setStatus(RUNNING);
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        // Cancel the persistent notification.
-        mNM.cancel(R.string.smb_service_label);
-
+    	Toast.makeText(this, "Service Process destroyed", Toast.LENGTH_LONG).show();
+    }
+    
+    public void shutDown() {
+    	mNM.cancel(R.string.smb_service_label);
+    	this.setStatus(STOPPED);
         // Tell the user we stopped.
         Toast.makeText(this, R.string.smb_stopped, Toast.LENGTH_LONG).show();
     }
