@@ -4,4 +4,9 @@
     <string name="app_name">AndroidSMB</string>
 <string name="button_on">On/Off</string>
 <string name="logTitle">AndroidSMB Log</string>
+<string name="smb_started">SMB Server Started</string>
+<string name="smb_service_label">AndroidSMB service</string>
+<string name="smb_stopped">SMB Server Stopped</string>
+<string name="smb_service_connected">Bound to SMB Service</string>
+<string name="smb_service_disconnected">SMB Service Disconnected</string>
 </resources>

@@ -17,7 +17,12 @@
 package com.google.code.androidsmb;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -32,56 +37,93 @@ import android.widget.Toast;
  * This is the main Activity that displays the current chat session.
  */
 public class AndroidSMB extends Activity implements AndroidSMBConstants {
+	private boolean mIsRunning;
+    private AndroidSMBService mService;
 
-
-    // Message types sent from the AndroidSMBService Handler
-    public static final int MESSAGE_STATE_CHANGE = 1;
-    public static final int MESSAGE_READ = 2;
-    public static final int MESSAGE_WRITE = 3;
-    public static final int MESSAGE_DEVICE_NAME = 4;
-    public static final int MESSAGE_TOAST = 5;
 
     // Key names received from the BluetoothChatService Handler
     public static final String DEVICE_NAME = "device_name";
-    public static final String TOAST = "toast";
+    public static final int MESSAGE_DEVICE_NAME = 4;
+    public static final int MESSAGE_READ = 2;
+    // Message types sent from the AndroidSMBService Handler
+    public static final int MESSAGE_STATE_CHANGE = 1;
+    public static final int MESSAGE_TOAST = 5;
 
+    public static final int MESSAGE_WRITE = 3;
     // Intent request codes
     private static final int REQUEST_CONNECT_DEVICE = 1;
+
     private static final int REQUEST_ENABLE_BT = 2;
+    public static final String TOAST = "toast";
 
-    // Layout Views
-    private TextView mTitle;
-    private ListView mLogView;
     private Button mButtonOn;
-
     // Name of the device
     private String mDeviceName = null;
     // Array adapter for the log thread
     private ArrayAdapter<String> mLogArrayAdapter;
+
+    private ListView mLogView;
     // String buffer for outgoing messages
     private StringBuffer mOutStringBuffer;
-    // Member object for the chat services
-    private AndroidSMBService mSMBService = null;
+
+    // Layout Views
+    private TextView mTitle;
 
 //  // Local Bluetooth adapter
 //  private BluetoothAdapter mBluetoothAdapter = null;
 
     private void log(String message){
     	if(DEBUG) Log.e(TAG, message);
-        mLogArrayAdapter.add(TAG + ":  " + message);
+        mLogArrayAdapter.add(message);
     }
+    
+    private ServiceConnection mConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            // This is called when the connection with the service has been
+            // established, giving us the service object we can use to
+            // interact with the service.  Because we have bound to a explicit
+            // service that we know is running in our own process, we can
+            // cast its IBinder to a concrete class and directly access it.
+            mService = ((AndroidSMBService.LocalBinder)service).getService();
+            // Tell the user about this for our demo.
+            Toast.makeText(AndroidSMB.this, R.string.smb_service_connected,
+                    Toast.LENGTH_SHORT).show();
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            // This is called when the connection with the service has been
+            // unexpectedly disconnected -- that is, its process crashed.
+            // Because it is running in our same process, we should never
+            // see this happen.
+            mService = null;
+            Toast.makeText(AndroidSMB.this, R.string.smb_service_disconnected,
+                    Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    
     
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        startService(new Intent(this, AndroidSMBService.class));
+        
+        requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
+        setContentView(R.layout.main);
+        getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, R.layout.custom_title);
+        // Set up the custom title
+        mTitle = (TextView) findViewById(R.id.title_left_text);
+        mTitle.setText(R.string.app_name);
+        mTitle = (TextView) findViewById(R.id.title_right_text);
+        
+        this.setupLog();
+        this.log("+++ ON CREATE +++");
+        
+        
         
 //        getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, R.layout.custom_title);
 //
-//        // Set up the custom title
-//        mTitle = (TextView) findViewById(R.id.title_left_text);
-//        mTitle.setText(R.string.app_name);
-//        mTitle = (TextView) findViewById(R.id.title_right_text);
+
 //
 //        // Get local Bluetooth adapter
 //        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -95,17 +137,53 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // Stop the Bluetooth chat services
+//        if (mSMBService != null) mSMBService.stop();
+        this.log("--- ON DESTROY ---");
+        Toast.makeText(this, "Destroying", Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public synchronized void onPause() {
+        super.onPause();
+        this.log("- ON PAUSE -");
+    	// Detach our existing connection.
+    	unbindService(mConnection);
+    	mIsRunning = false;
+    }
+    
+    @Override
+    public synchronized void onResume() {
+        super.onResume();
+        this.log("+ ON RESUME +");
+    	bindService(new Intent(AndroidSMB.this, 
+    			AndroidSMBService.class), mConnection, Context.BIND_AUTO_CREATE);
+    	mIsRunning = true;
+
+//        // Performing this check in onResume() covers the case in which BT was
+//        // not enabled during onStart(), so we were paused to enable it...
+//        // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
+//        if (mChatService != null) {
+//            // Only if the state is STATE_NONE, do we know that we haven't started already
+//            if (mChatService.getState() == AndroidSMBService.STATE_NONE) {
+//              // Start the Bluetooth chat services
+//              mChatService.start();
+//            }
+//        }
+    }
+    
+    @Override
     public void onStart() {
         super.onStart();
-        this.setupLog();
-        this.log("+++ ON CREATE +++");
         this.log("++ ON START ++");
 
         Toast.makeText(this, "Creating", Toast.LENGTH_LONG).show();
         
-        // Set up the window layout
-        requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
-        setContentView(R.layout.main);
+//        // Set up the window layout
+//        requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
+//        setContentView(R.layout.main);
         
         // Initialize the send button with a listener that for click events
         mButtonOn = (Button) findViewById(R.id.button_on);
@@ -113,6 +191,22 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 AndroidSMB.this.log("+++ Button Pressed +++");
+                int status = mService.getStatus();
+                mService.swapStatus();
+                AndroidSMB.this.log("Status "+status);
+                
+//                if (mIsRunning) {
+//                	AndroidSMB.this.log("Disconnecting");
+//                	mIsRunning = false;
+//                	stopService(new Intent(AndroidSMB.this, AndroidSMBService.class));
+//
+//                } else {
+//                	AndroidSMB.this.log("Connecting");
+//                	startService(new Intent(AndroidSMB.this, AndroidSMBService.class));
+//                	mIsRunning = true;
+//                }
+
+                
             }
         });
 //        // If BT is not on, request that it be enabled.
@@ -127,27 +221,11 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
     }
 
     @Override
-    public synchronized void onResume() {
-        super.onResume();
-        this.log("+ ON RESUME +");
+    public void onStop() {
+        super.onStop();
+        this.log("-- ON STOP --");
+    }
 
-//        // Performing this check in onResume() covers the case in which BT was
-//        // not enabled during onStart(), so we were paused to enable it...
-//        // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
-//        if (mChatService != null) {
-//            // Only if the state is STATE_NONE, do we know that we haven't started already
-//            if (mChatService.getState() == AndroidSMBService.STATE_NONE) {
-//              // Start the Bluetooth chat services
-//              mChatService.start();
-//            }
-//        }
-    }
-    
-    private void setupService() {
-        // Initialize the BluetoothChatService to perform bluetooth connections
-//        mSMBService = new AndroidSMBService(this, mHandler);
-    }
-    
     private void setupLog() {
         Log.d(TAG, "setupChat()");
 
@@ -155,6 +233,8 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
         mLogArrayAdapter = new ArrayAdapter<String>(this, R.layout.message);
         mLogView = (ListView) findViewById(R.id.logView);
         mLogView.setAdapter(mLogArrayAdapter);
+        this.log("Setup log view");
+        
         // Initialize the buffer for outgoing messages
 //        mOutStringBuffer = new StringBuffer("");
         
@@ -164,25 +244,9 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
 
     }
 
-    @Override
-    public synchronized void onPause() {
-        super.onPause();
-        this.log("- ON PAUSE -");
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        this.log("-- ON STOP --");
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        // Stop the Bluetooth chat services
-//        if (mSMBService != null) mSMBService.stop();
-        this.log("--- ON DESTROY ---");
-        Toast.makeText(this, "Destroying", Toast.LENGTH_LONG).show();
+    private void setupService() {
+        // Initialize the BluetoothChatService to perform bluetooth connections
+//        mSMBService = new AndroidSMBService(this, mHandler);
     }
 
 //    private void ensureDiscoverable() {

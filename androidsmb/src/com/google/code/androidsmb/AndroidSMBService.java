@@ -16,20 +16,15 @@
 
 package com.google.code.androidsmb;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.UUID;
-
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
-import android.content.Context;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.os.Binder;
+import android.os.IBinder;
 import android.util.Log;
+import android.widget.Toast;
 
 /**
  * This class does all the work for setting up and managing Bluetooth
@@ -37,7 +32,97 @@ import android.util.Log;
  * incoming connections, a thread for connecting with a device, and a
  * thread for performing data transmissions when connected.
  */
-public class AndroidSMBService {
+public class AndroidSMBService extends Service implements AndroidSMBConstants{
+	
+	final private String TAG="AndroidSMBService";
+
+	private NotificationManager mNM;
+	
+	private int status = STOPPED;
+	
+    /**
+     * Class for clients to access.  Because we know this service always
+     * runs in the same process as its clients, we don't need to deal with
+     * IPC.
+     */
+    public class LocalBinder extends Binder {
+    	AndroidSMBService getService() {
+            return AndroidSMBService.this;
+        }
+    }
+
+    @Override
+    public void onCreate() {
+        mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+
+        // Display a notification about us starting.  We put an icon in the status bar.
+        showNotification();
+        status = RUNNING;
+    }
+
+    public int getStatus(){
+    	return status;
+    }
+    
+    public void swapStatus(){
+    	status = status % 1;
+    }
+    
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i(TAG, "Received start id " + startId + ": " + intent);
+
+        Toast.makeText(this, R.string.smb_started, Toast.LENGTH_LONG).show();
+        // We want this service to continue running until it is explicitly
+        // stopped, so return sticky.
+        return START_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        // Cancel the persistent notification.
+        mNM.cancel(R.string.smb_service_label);
+
+        // Tell the user we stopped.
+        Toast.makeText(this, R.string.smb_stopped, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+    	return mBinder;
+    }
+
+    // This is the object that receives interactions from clients.  See
+    // RemoteService for a more complete example.
+    private final IBinder mBinder = new LocalBinder();
+
+    
+	
+    /**
+     * Show a notification while this service is running.
+     */
+    private void showNotification() {
+        // In this sample, we'll use the same text for the ticker and the expanded notification
+        CharSequence text = getText(R.string.app_name);
+
+        // Set the icon, scrolling text and timestamp
+        Notification notification = new Notification(R.drawable.icon, text,
+                System.currentTimeMillis());
+        notification.flags |= Notification.FLAG_NO_CLEAR|Notification.FLAG_ONGOING_EVENT;
+
+        // The PendingIntent to launch our activity if the user selects this notification
+        PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
+                new Intent(this, AndroidSMB.class), 0);
+
+        // Set the info for the views that show in the notification panel.
+        notification.setLatestEventInfo(this, getText(R.string.smb_service_label),
+                       text, contentIntent);
+
+        // Send the notification.
+        // We use a layout id because it is a unique number.  We use it later to cancel.
+        mNM.notify(R.string.smb_service_label, notification);
+    }
+
 //    // Debugging
 //    private static final String TAG = "BluetoothChatService";
 //    private static final boolean D = true;
