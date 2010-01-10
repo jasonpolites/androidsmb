@@ -20,8 +20,7 @@
         
         <Button android:id="@+id/button_on"
             android:layout_height="wrap_content"
-            android:text="@string/button_on"
-        android:layout_width="fill_parent"/>
+            android:text="@string/button_on" android:layout_width="fill_parent"/>
     </LinearLayout>
 
 </LinearLayout>
