@@ -37,7 +37,7 @@ import android.widget.Toast;
  * This is the main Activity that displays the current chat session.
  */
 public class AndroidSMB extends Activity implements AndroidSMBConstants {
-	private boolean mIsRunning;
+	private boolean mIsRunning = false;
     private AndroidSMBService mService;
 
 
@@ -88,6 +88,8 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             // Tell the user about this for our demo.
             Toast.makeText(AndroidSMB.this, R.string.smb_service_connected,
                     Toast.LENGTH_SHORT).show();
+            mIsRunning = mService.getStatus() == RUNNING;
+
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -95,7 +97,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             // unexpectedly disconnected -- that is, its process crashed.
             // Because it is running in our same process, we should never
             // see this happen.
-            mService = null;
+        	mService = null;
             Toast.makeText(AndroidSMB.this, R.string.smb_service_disconnected,
                     Toast.LENGTH_SHORT).show();
         }
@@ -106,8 +108,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        startService(new Intent(this, AndroidSMBService.class));
-        
+        //
         requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
         setContentView(R.layout.main);
         getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, R.layout.custom_title);
@@ -151,16 +152,15 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
         this.log("- ON PAUSE -");
     	// Detach our existing connection.
     	unbindService(mConnection);
-    	mIsRunning = false;
     }
     
     @Override
     public synchronized void onResume() {
         super.onResume();
         this.log("+ ON RESUME +");
-    	bindService(new Intent(AndroidSMB.this, 
+        bindService(new Intent(AndroidSMB.this, 
     			AndroidSMBService.class), mConnection, Context.BIND_AUTO_CREATE);
-    	mIsRunning = true;
+    	
 
 //        // Performing this check in onResume() covers the case in which BT was
 //        // not enabled during onStart(), so we were paused to enable it...
@@ -191,9 +191,18 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 AndroidSMB.this.log("+++ Button Pressed +++");
-                int status = mService.getStatus();
-                mService.swapStatus();
-                AndroidSMB.this.log("Status "+status);
+                
+                if(mIsRunning){
+                	AndroidSMB.this.log("Stopping Service");
+                	mService.shutDown();
+                	stopService(new Intent(AndroidSMB.this, AndroidSMBService.class));
+                	mIsRunning=false;
+
+                } else {
+                	AndroidSMB.this.log("Starting Service");
+                	startService(new Intent(AndroidSMB.this, AndroidSMBService.class));
+                	mIsRunning=true;
+                }
                 
 //                if (mIsRunning) {
 //                	AndroidSMB.this.log("Disconnecting");
