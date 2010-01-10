@@ -16,13 +16,23 @@
 
 package com.google.code.androidsmb;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.alfresco.jlan.app.XMLServerConfiguration;
+import org.alfresco.jlan.server.config.InvalidConfigurationException;
+import org.alfresco.jlan.smb.server.CIFSConfigSection;
+
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
+import android.net.Uri;
 import android.os.Binder;
-import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -40,6 +50,8 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 	private NotificationManager mNM;
 	
 	private int status = STOPPED;
+
+	protected CifsServer server;
 	
     /**
      * Class for clients to access.  Because we know this service always
@@ -56,6 +68,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
     public void onCreate() {
     	Toast.makeText(this, "Android SMB Service Created", Toast.LENGTH_LONG).show();
     	// Display a notification about us starting.  We put an icon in the status bar.
+    	
     }
 
     public int getStatus(){
@@ -76,17 +89,37 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
         // stopped, so return sticky.
     	mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
     	showNotification();
-    	this.setStatus(RUNNING);
-        return START_STICKY;
+    	new Thread(new Runnable() {
+		
+			public void run() {
+				try {
+					InputStream stream = AndroidSMBService.this.getResources().openRawResource(R.raw.config);
+			    	XMLServerConfiguration srvConfig = new XMLServerConfiguration();
+					srvConfig.loadConfiguration(new InputStreamReader(stream));
+
+					server = new CifsServer(srvConfig);
+			    	AndroidSMBService.this.setStatus(RUNNING);
+			    	server.run();
+				} catch (Exception e) {
+					server.stop();
+					AndroidSMBService.this.setStatus(STOPPED);
+			    	Toast.makeText(AndroidSMBService.this, "Error with server", Toast.LENGTH_LONG).show();
+			        e.printStackTrace();
+					Log.e(TAG, "error loading server", e);
+				}
+			}
+		}).start();
+    	return START_STICKY;
     }
 
-    @Override
+	@Override
     public void onDestroy() {
     	Toast.makeText(this, "Service Process destroyed", Toast.LENGTH_LONG).show();
     }
     
     public void shutDown() {
-    	mNM.cancel(R.string.smb_service_label);
+    	server.stop();
+		mNM.cancel(R.string.smb_service_label);
     	this.setStatus(STOPPED);
         // Tell the user we stopped.
         Toast.makeText(this, R.string.smb_stopped, Toast.LENGTH_LONG).show();
