@@ -19,6 +19,7 @@ package com.google.code.androidsmb;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.logging.Handler;
 
 import org.alfresco.jlan.app.XMLServerConfiguration;
 import org.alfresco.jlan.server.config.InvalidConfigurationException;
@@ -53,6 +54,8 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
 	protected CifsServer server;
 	
+	private Handler logHandler;
+	
     /**
      * Class for clients to access.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with
@@ -63,7 +66,11 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
             return AndroidSMBService.this;
         }
     }
-
+    
+    /* (non-Javadoc)
+     * @see android.app.Service#onCreate()
+     * This will be called automatically when the Activity tries to bind to this service if it isn't already created.
+     */
     @Override
     public void onCreate() {
     	Toast.makeText(this, "Android SMB Service Created", Toast.LENGTH_LONG).show();
@@ -81,6 +88,11 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
     	return temp;
     }
     
+    /* (non-Javadoc)
+     * @see android.app.Service#onStartCommand(android.content.Intent, int, int)
+     * 
+     * Even though this 'Service' is 'created' automatically, this won't get called until the activity explicitly calls 'startActivity'
+     */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.i(TAG, "Received start id " + startId + ": " + intent);
@@ -127,10 +139,18 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
     @Override
     public IBinder onBind(Intent intent) {
+    	this.logHandler = (Handler) intent.getExtras().get(LOGGER);
     	return mBinder;
     }
 
-    // This is the object that receives interactions from clients.  See
+    @Override
+	public boolean onUnbind(Intent intent) {
+		// TODO Auto-generated method stub
+    	this.logHandler = null;
+		return super.onUnbind(intent);
+	}
+
+	// This is the object that receives interactions from clients.  See
     // RemoteService for a more complete example.
     private final IBinder mBinder = new LocalBinder();
 
