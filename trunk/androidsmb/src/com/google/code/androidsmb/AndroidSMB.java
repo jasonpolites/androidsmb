@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
@@ -36,9 +37,10 @@ import android.widget.Toast;
 /**
  * This is the main Activity that displays the current chat session.
  */
-public class AndroidSMB extends Activity implements AndroidSMBConstants {
+public class AndroidSMB extends Activity implements AndroidSMBConstants, MessageListener {
 	private boolean mIsRunning = false;
     private AndroidSMBService mService;
+    private Handler mHandler;
 
 
     // Key names received from the BluetoothChatService Handler
@@ -73,7 +75,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
 //  private BluetoothAdapter mBluetoothAdapter = null;
 
     private void log(String message){
-    	if(DEBUG) Log.e(TAG, message);
+    	if(DEBUG) Log.d(TAG, message);
         mLogArrayAdapter.add(message);
     }
     
@@ -85,6 +87,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             // service that we know is running in our own process, we can
             // cast its IBinder to a concrete class and directly access it.
             mService = ((AndroidSMBService.LocalBinder)service).getService();
+            mService.getLogHandler().attach(AndroidSMB.this);
             // Tell the user about this for our demo.
             Toast.makeText(AndroidSMB.this, R.string.smb_service_connected,
                     Toast.LENGTH_SHORT).show();
@@ -97,6 +100,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
             // unexpectedly disconnected -- that is, its process crashed.
             // Because it is running in our same process, we should never
             // see this happen.
+        	mService.getLogHandler().dettach(AndroidSMB.this);
         	mService = null;
             Toast.makeText(AndroidSMB.this, R.string.smb_service_disconnected,
                     Toast.LENGTH_SHORT).show();
@@ -108,6 +112,7 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        this.mHandler = new Handler();
         //
         requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
         setContentView(R.layout.main);
@@ -257,6 +262,34 @@ public class AndroidSMB extends Activity implements AndroidSMBConstants {
         // Initialize the BluetoothChatService to perform bluetooth connections
 //        mSMBService = new AndroidSMBService(this, mHandler);
     }
+
+	public void error(final String msg) {
+		mHandler.post(new Runnable(){
+
+			public void run() {
+				mLogArrayAdapter.add(ERROR+msg);
+			}});
+	}
+
+	public void error(final String msg, final Throwable e) {
+		mHandler.post(new Runnable(){
+
+			public void run() {
+				StringBuilder builder = new StringBuilder();
+				mLogArrayAdapter.add(ERROR+msg+"\n");
+				for(StackTraceElement element : e.getStackTrace()){
+					mLogArrayAdapter.add(element.toString());
+				}
+			}});
+	}
+
+	public void message(final String msg) {
+		mHandler.post(new Runnable(){
+
+			public void run() {
+				mLogArrayAdapter.add(msg);
+			}});
+	}
 
 //    private void ensureDiscoverable() {
 //        this.log("ensure discoverable");

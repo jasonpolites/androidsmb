@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.util.logging.Handler;
 
 import org.alfresco.jlan.app.XMLServerConfiguration;
+import org.alfresco.jlan.debug.Debug;
 import org.alfresco.jlan.server.config.InvalidConfigurationException;
 import org.alfresco.jlan.smb.server.CIFSConfigSection;
 
@@ -38,13 +39,23 @@ import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
+interface MessageListener {
+	
+	public void message(String msg);
+	
+	public void error(String msg);
+	
+	public void error(String msg, Throwable e);
+	
+}
+
 /**
  * This class does all the work for setting up and managing Bluetooth
  * connections with other devices. It has a thread that listens for
  * incoming connections, a thread for connecting with a device, and a
  * thread for performing data transmissions when connected.
  */
-public class AndroidSMBService extends Service implements AndroidSMBConstants{
+public class AndroidSMBService extends Service implements AndroidSMBConstants {
 	
 	final private String TAG="AndroidSMBService";
 
@@ -54,7 +65,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
 	protected CifsServer server;
 	
-	private Handler logHandler;
+	private DebugLogger logHandler;
 	
     /**
      * Class for clients to access.  Because we know this service always
@@ -75,7 +86,8 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
     public void onCreate() {
     	Toast.makeText(this, "Android SMB Service Created", Toast.LENGTH_LONG).show();
     	// Display a notification about us starting.  We put an icon in the status bar.
-    	
+    	this.logHandler = new DebugLogger(TAG);
+    	Debug.setDebugInterface(this.logHandler);
     }
 
     public int getStatus(){
@@ -86,6 +98,10 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
     	int temp = this.getStatus();
     	this.status = status;
     	return temp;
+    }
+    
+    public DebugLogger getLogHandler(){
+    	return this.logHandler;
     }
     
     /* (non-Javadoc)
@@ -111,6 +127,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
 					server = new CifsServer(srvConfig);
 			    	AndroidSMBService.this.setStatus(RUNNING);
+			    	AndroidSMBService.this.getLogHandler().debugPrintln(TAG+": SMB Started");
 			    	server.run();
 				} catch (Exception e) {
 					server.stop();
@@ -131,7 +148,8 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
     
     public void shutDown() {
     	server.stop();
-		mNM.cancel(R.string.smb_service_label);
+    	AndroidSMBService.this.getLogHandler().debugPrintln(TAG+": SMB Stopped");
+    	mNM.cancel(R.string.smb_service_label);
     	this.setStatus(STOPPED);
         // Tell the user we stopped.
         Toast.makeText(this, R.string.smb_stopped, Toast.LENGTH_LONG).show();
@@ -139,7 +157,6 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
 
     @Override
     public IBinder onBind(Intent intent) {
-    	this.logHandler = (Handler) intent.getExtras().get(LOGGER);
     	return mBinder;
     }
 
@@ -180,6 +197,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants{
         // We use a layout id because it is a unique number.  We use it later to cancel.
         mNM.notify(R.string.smb_service_label, notification);
     }
+
 
 //    // Debugging
 //    private static final String TAG = "BluetoothChatService";
