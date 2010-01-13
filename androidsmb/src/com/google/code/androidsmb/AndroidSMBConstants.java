@@ -16,5 +16,6 @@ public interface AndroidSMBConstants {
     public static final int RUNNING = 1;
     public static final int STOPPED = 0;
     public static final String LOGGER = "Logger";
+    public static final String ERROR = "Error";
     
 }
