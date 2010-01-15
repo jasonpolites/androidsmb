@@ -5,18 +5,14 @@
   <servers>
     <SMB/>
     <noFTP/>
-    <noNFS/>
   </servers>
 	
   <SMB>
-    <host name="JLANSRV" domain="WORKGROUP">
-      <broadcast>127.0.0.1</broadcast>
+    <host name="ANDROID" domain="WORKGROUP">
+      <broadcast>128.0.0.1</broadcast>
       <smbdialects>LanMan,NT</smbdialects>
       <comment>Alfresco JLAN Server</comment>
 
-      <Win32NetBIOS/>
-      <Win32Announce interval="5"/>
-      
       <!-- Requires running the server using the root account -->
       <!--
       <netBIOSSMB platforms="linux,macosx,solaris"/>
@@ -24,14 +20,14 @@
 	  -->
 
       <!-- To run the server using a non-root account on linux, Mac OS X, Solaris -->
-      <netBIOSSMB sessionPort="1139" namePort="1137" datagramPort="1138" platforms="linux,macosx,solaris"/>
-      <tcpipSMB port="1445" platforms="linux,macosx,solaris"/>
+      <netBIOSSMB sessionPort="1139" namePort="137" datagramPort="1138" platforms="linux"/>
+      <tcpipSMB port="1445" platforms="linux"/>
       
-      <hostAnnounce interval="5"/>
+      <hostAnnounce interval="1"/>
     </host>
     <sessionDebug flags="Negotiate,Socket,Tree"/>
-<!--    <netbiosDebug/> -->
-<!--    <announceDebug/> -->
+    <netbiosDebug/>
+    <announceDebug/>
     
 		<authenticator type="enterprise">
 			<mode>USER</mode>
@@ -54,7 +50,7 @@
 
   <debug>
     <output>
-      <class>org.alfresco.jlan.debug.ConsoleDebug</class>
+      <class>com.google.code.androidsmb.DebugLogger</class>
       <logFile>jlansrv.log</logFile>
       <append/>
     </output>
