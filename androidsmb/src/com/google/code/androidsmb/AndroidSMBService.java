@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
 import org.alfresco.jlan.app.XMLServerConfiguration;
 import org.alfresco.jlan.debug.Debug;
@@ -65,7 +67,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants {
 
 	protected CifsServer server;
 	
-	private DebugLogger logHandler;
+	private DebugHandler logHandler;
 	
     /**
      * Class for clients to access.  Because we know this service always
@@ -86,8 +88,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants {
     public void onCreate() {
     	Toast.makeText(this, "Android SMB Service Created", Toast.LENGTH_LONG).show();
     	// Display a notification about us starting.  We put an icon in the status bar.
-    	this.logHandler = new DebugLogger(TAG);
-    	Debug.setDebugInterface(this.logHandler);
+    	this.logHandler = DebugHandler.getInstance();
     }
 
     public int getStatus(){
@@ -100,7 +101,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants {
     	return temp;
     }
     
-    public DebugLogger getLogHandler(){
+    public DebugHandler getLogHandler(){
     	return this.logHandler;
     }
     
@@ -127,7 +128,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants {
 
 					server = new CifsServer(srvConfig);
 			    	AndroidSMBService.this.setStatus(RUNNING);
-			    	AndroidSMBService.this.getLogHandler().debugPrintln(TAG+": SMB Started");
+			    	AndroidSMBService.this.getLogHandler().publish(new LogRecord(Level.INFO,"SMB Started"));
 			    	server.run();
 				} catch (Exception e) {
 					server.stop();
@@ -148,7 +149,7 @@ public class AndroidSMBService extends Service implements AndroidSMBConstants {
     
     public void shutDown() {
     	server.stop();
-    	AndroidSMBService.this.getLogHandler().debugPrintln(TAG+": SMB Stopped");
+    	AndroidSMBService.this.getLogHandler().publish(new LogRecord(Level.INFO,"SMB Stopped"));
     	mNM.cancel(R.string.smb_service_label);
     	this.setStatus(STOPPED);
         // Tell the user we stopped.
